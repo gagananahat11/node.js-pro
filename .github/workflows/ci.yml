@@ -1,43 +1,23 @@
-name: Node.js CI & Deploy to EC2
+name: Node.js CI with Docker
 
 on:
   push:
+    branches: [ main ]
+  pull_request:
     branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [18.x]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
+      - name: Build Docker image
+        run: |
+          docker build -t nodejs-ci-app .
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run tests
-        run: npm test
-
-      - name: Deploy to EC2
-        if: success()  # deploy only if previous steps passed
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}          # your EC2 IP or hostname
-          username: ec2-user                     # or 'ubuntu' depending on your instance
-          key: ${{ secrets.EC2_SSH_KEY }}       # SSH private key secret
-          port: 22
-          script: |
-            cd /home/ec2-user/your-project-folder || git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git /home/ec2-user/your-project-folder
-            cd /home/ec2-user/your-project-folder
-            git pull origin main
-            npm install
-            pm2 restart nodejs-app || pm2 start index.js --name nodejs-app
+      - name: Run tests in Docker container
+        run: |
+          docker run --rm nodejs-ci-app npm test
